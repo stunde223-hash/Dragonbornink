@@ -1,0 +1,23 @@
+DRAGONBORNINK: LOCAL WEBSITE
+
+1. Extract this entire ZIP into a folder on your Windows computer.
+2. Double-click Start-Dragonbornink.cmd.
+3. Your browser opens the site. Keep the command window open.
+4. If the browser does not open, use the exact address in the window or LOCAL-ADDRESS.txt.
+
+Do not run the launcher from inside the ZIP. Extract All first.
+Use the printed 127.0.0.1 address, including its port. Do not use HTTPS.
+If a window shows an error, leave it open and share the error text.
+
+Requires Node.js (LTS): https://nodejs.org/
+No npm commands or dependency installation are needed.
+
+The server listens only on your computer at 127.0.0.1.
+It normally uses port 4173 and picks another nearby port if occupied.
+Close the command window or press Ctrl+C to stop the server.
+
+Email and WhatsApp buttons prepare messages for you to review and send.
+They do not send messages automatically.
+
+On macOS or Linux with Node.js installed, run: node serve.cjs
+Then open the address printed in the terminal.
