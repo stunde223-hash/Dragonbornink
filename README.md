@@ -50,3 +50,11 @@ The footer credit links to **https://northbridgelogic.com**.
 ## Deployment
 
 Deploy `dist/` to a static host with SPA fallback for `/privacy/` and `/terms/`. A Netlify-compatible `_redirects` file is included. On other hosts, route unknown paths to `index.html`; the site renders its own missing-page view for unsupported paths. No secrets or backend services are required. Publication and domain connection have not been performed.
+
+## Loading and video playback
+
+The hero image is preloaded, other portfolio images load lazily, and the local font is a compressed WOFF2 subset. Images use WebP. The Windows launcher compresses text responses and caches assets with conditional revalidation support.
+
+The main film starts muted when at least a quarter of the player is visible and pauses when it leaves that area, the tab is hidden, or a portfolio viewer opens. Native controls let visitors enable sound or pause. Reduced-motion and data-saving preferences disable automatic playback, but manual playback remains available. Browser autoplay restrictions are handled without breaking the controls. Finished films stay stopped until replayed.
+
+Phones use 480px video versions for four films, reducing those downloads by 33–42%. The snake/floral film keeps its original, already smaller encode. No video data is requested on the initial page view. Original desktop video quality is retained. Tests cover both phone and desktop playback, all film choices, offscreen pausing, accessibility preferences, compression, caching, and video byte ranges.

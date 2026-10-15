@@ -45,7 +45,7 @@ test('form validates, prepares correct email and WhatsApp messages, downloads an
 
 test('all five films decode and play; closing a viewer stops playback',async()=>{
  const page=await newPage();const options=await page.locator('[data-select-film]').all();assert.equal(options.length,5);
- for(const option of options){await option.click();const video=page.locator('#feature-video');await video.evaluate(async video=>{video.muted=true;await video.play();});await page.waitForFunction(()=>document.querySelector('#feature-video').currentTime>0.1);assert.equal(await video.evaluate(v=>v.error===null&&v.videoWidth>0),true);await video.evaluate(v=>v.pause());}
+ for(const option of options){await option.click();const video=page.locator('#feature-video');await video.scrollIntoViewIfNeeded();await page.waitForFunction(()=>document.querySelector('#feature-video').currentTime>0.1);assert.equal(await video.evaluate(v=>v.error===null&&v.videoWidth>0),true);await video.evaluate(v=>v.pause());}
  await page.locator('[data-film="in-session"]').click();await page.locator('dialog video').evaluate(async v=>{v.muted=true;await v.play();});await page.getByRole('button',{name:'Close portfolio viewer'}).click();assert.equal(await page.locator('dialog video').evaluate(v=>v.paused),true);await page.close();
 });
 
@@ -67,4 +67,67 @@ test('automated accessibility checks pass on home, portfolio viewer, and policy 
  const page=await newPage();let result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[]);
  await page.getByRole('button',{name:'View Higher ground'}).click();result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[]);
  await page.goto(`${base}/privacy/`);result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[]);await page.close();
+});
+
+
+test('desktop and mobile videos load on demand, autoplay in view, and pause outside it',async()=>{
+ for(const width of [390,1440]){
+  const page=await browser.newPage({viewport:{width,height:844}});
+  const requests=[];page.on('request',r=>requests.push(r.url()));
+  await page.goto(base);await page.evaluate(()=>document.fonts.ready);
+  assert.equal(requests.some(url=>url.endsWith('.mp4')),false,'No video bytes on initial load');
+  const video=page.locator('#feature-video');
+  await video.scrollIntoViewIfNeeded();
+  await page.waitForFunction(()=>{const v=document.querySelector('#feature-video');return !v.paused&&v.currentTime>0.1;});
+  assert.equal(await video.evaluate(v=>v.muted),true);
+  assert.equal(await video.evaluate(v=>v.currentSrc.endsWith('-mobile.mp4')),width===390);
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.waitForFunction(()=>document.querySelector('#feature-video').paused);
+  await video.scrollIntoViewIfNeeded();
+  await page.waitForFunction(()=>!document.querySelector('#feature-video').paused);
+  await video.evaluate(v=>v.pause());
+  // Native pause remains effective while the section stays in view.
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await video.evaluate(v=>v.paused),true);
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.waitForFunction(()=>document.querySelector('#feature-video').getBoundingClientRect().top>innerHeight);
+  await video.scrollIntoViewIfNeeded();
+  await page.waitForFunction(()=>!document.querySelector('#feature-video').paused);
+  await page.evaluate(()=>document.querySelector('#work-dialog').showModal());
+  await page.waitForFunction(()=>document.querySelector('#feature-video').paused);
+  await page.evaluate(()=>document.querySelector('#work-dialog').close());
+  await page.waitForFunction(()=>!document.querySelector('#feature-video').paused);
+  await page.close();
+ }
+});
+
+test('reduced motion and data saving keep playback under manual control',async()=>{
+ for(const setting of ['motion','data']){
+  const page=await browser.newPage({viewport:{width:390,height:844},reducedMotion:setting==='motion'?'reduce':'no-preference'});
+  if(setting==='data')await page.addInitScript(()=>Object.defineProperty(navigator,'connection',{value:{saveData:true}}));
+  await page.goto(base);const video=page.locator('#feature-video');await video.scrollIntoViewIfNeeded();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await video.evaluate(v=>v.paused),true);
+  await video.evaluate(v=>v.play());
+  await page.waitForFunction(()=>document.querySelector('#feature-video').currentTime>0.1);
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.waitForFunction(()=>document.querySelector('#feature-video').paused);
+  await page.close();
+ }
+});
+
+
+test('all five mobile film choices play and switching while offscreen stays paused',async()=>{
+ const page=await newPage({width:390,height:844});
+ for(const option of await page.locator('[data-select-film]').all()){
+  await option.click();
+  const video=page.locator('#feature-video');await video.scrollIntoViewIfNeeded();
+  await page.waitForFunction(()=>{const v=document.querySelector('#feature-video');return !v.paused&&v.currentTime>0.1&&v.videoWidth>0;});
+  assert.equal(await video.evaluate(v=>v.error),null);
+ }
+ await page.evaluate(()=>{scrollTo(0,0);});
+ await page.waitForFunction(()=>document.querySelector('#feature-video').paused);
+ await page.locator('[data-select-film]').first().evaluate(b=>b.click());
+ assert.equal(await page.locator('#feature-video').evaluate(v=>v.paused),true);
+ await page.close();
 });

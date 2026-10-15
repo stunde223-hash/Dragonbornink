@@ -1,9 +1,10 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createGzip } = require('node:zlib');
 const { spawn } = require('node:child_process');
 const root = fs.realpathSync(__dirname);
-const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp','.mp4':'video/mp4','.ttf':'font/ttf','.txt':'text/plain; charset=utf-8'};
+const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp','.mp4':'video/mp4','.ttf':'font/ttf','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'};
 const server = http.createServer((req,res) => {
   if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405,{'Allow':'GET, HEAD'}); return res.end(); }
   let pathname;
@@ -16,6 +17,13 @@ const server = http.createServer((req,res) => {
   fs.stat(file,(error,stat)=>{
     if(error || !stat.isFile()) {res.writeHead(404);return res.end('Not found');}
     const headers={'Content-Type':types[ext], 'X-Content-Type-Options':'nosniff','Accept-Ranges':'bytes'};
+    const etag = `W/"${stat.size}-${Math.trunc(stat.mtimeMs)}"`;
+    headers['Cache-Control'] = ext === '.html' ? 'no-cache' : 'public, max-age=3600';
+    headers.ETag = etag;
+    if (!req.headers.range && req.headers['if-none-match'] === etag) { res.writeHead(304,headers); return res.end(); }
+    const compressible = ['.html','.css','.js','.svg','.txt'].includes(ext);
+    if (compressible) headers.Vary = 'Accept-Encoding';
+    const gzip = compressible && !req.headers.range && /(?:^|,)\s*gzip\s*(?:,|$)/i.test(req.headers['accept-encoding'] || '');
     let start=0,end=stat.size-1,status=200;
     if(req.headers.range){
       const match=/^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
@@ -25,11 +33,14 @@ const server = http.createServer((req,res) => {
       if(start>end || start>=stat.size || !Number.isSafeInteger(start)||!Number.isSafeInteger(end)) {res.writeHead(416,{'Content-Range':`bytes */${stat.size}`});return res.end();}
       status=206;headers['Content-Range']=`bytes ${start}-${end}/${stat.size}`;
     }
-    headers['Content-Length']=end-start+1;
+    if (gzip) headers['Content-Encoding']='gzip';
+    else headers['Content-Length']=end-start+1;
     res.writeHead(status,headers);
     if(req.method==='HEAD')return res.end();
     const stream=fs.createReadStream(file,{start,end});
-    stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);
+    stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());
+    if(gzip){const compressor=createGzip();compressor.on('error',()=>res.destroy());res.on('close',()=>compressor.destroy());stream.pipe(compressor).pipe(res);}
+    else stream.pipe(res);
   });
 });
 let port=4173;

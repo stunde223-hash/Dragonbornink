@@ -7,9 +7,9 @@ export const site = {
 };
 
 export const works = [
-  { id: 'rose', title: 'Roots & remembrance', category: 'Black & grey', image: 'profile-cover.jpg', alt: 'Black and grey rose and family lettering tattoo', detail: 'Sculpted petals, soft shading, and lettering with personal meaning.', type: 'image' },
+  { id: 'rose', title: 'Roots & remembrance', category: 'Black & grey', image: 'profile-cover.webp', alt: 'Black and grey rose and family lettering tattoo', detail: 'Sculpted petals, soft shading, and lettering with personal meaning.', type: 'image' },
   { id: 'tiger', title: 'Wild by nature', category: 'Realism', image: 'tiger-sleeve.webp', video: 'tiger-sleeve.mp4', alt: 'Detailed tiger and floral full arm tattoo', detail: 'A tiger portrait framed by florals, flowing into a full sleeve.', type: 'video' },
-  { id: 'eagle', title: 'Higher ground', category: 'Nature', image: 'profile-avatar.jpg', alt: 'Color eagle tattoo above mountains, a forest, and a waterfall', detail: 'An eagle in flight above a richly detailed mountain landscape.', type: 'image' },
+  { id: 'eagle', title: 'Higher ground', category: 'Nature', image: 'profile-avatar.webp', alt: 'Color eagle tattoo above mountains, a forest, and a waterfall', detail: 'An eagle in flight above a richly detailed mountain landscape.', type: 'image' },
   { id: 'snake', title: 'Beauty with an edge', category: 'Nature', image: 'snake-floral.webp', video: 'snake-floral.mp4', alt: 'Snake and red flower tattoo on the side of a torso', detail: 'A winding snake and vivid florals, following the natural lines of the body.', type: 'video' },
 ];
 
