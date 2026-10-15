@@ -131,3 +131,46 @@ test('all five mobile film choices play and switching while offscreen stays paus
  assert.equal(await page.locator('#feature-video').evaluate(v=>v.paused),true);
  await page.close();
 });
+
+test('headline is centred and all three inline previews autoplay silently and pause offscreen',async()=>{
+ for (const width of [390,1440]) {
+  const page=await newPage({width,height:900});
+  const box=await page.locator('#hero-title').boundingBox();
+  assert.ok(Math.abs(box.x+box.width/2-width/2)<2);
+  assert.ok(box.width>width*.75);
+  assert.equal(await page.locator('.scroll-preview').count(),3);
+  for (const video of await page.locator('.scroll-preview').all()) {
+   await video.scrollIntoViewIfNeeded();
+   await page.waitForFunction(el=>!el.paused&&el.currentTime>0.1,await video.elementHandle());
+   assert.equal(await video.evaluate(v=>v.muted&&v.videoWidth>0),true);
+   await page.evaluate(()=>scrollTo(0,0));
+   await page.waitForFunction(el=>el.paused,await video.elementHandle());
+  }
+  await page.close();
+ }
+});
+
+test('private dashboard UI uploads, previews, and deletes with safe text rendering',async()=>{
+ const {onRequestGet}=await import('../functions/admin/[[path]].js');
+ const page=await browser.newPage(); let stored=false;
+ await page.route('**/admin/',async route=>route.fulfill({contentType:'text/html',body:await onRequestGet().text()}));
+ await page.route('**/api/admin/videos*',async route=>{
+  const method=route.request().method();
+  if(method==='POST'){stored=true;return route.fulfill({status:201,json:{key:'videos/test.mp4'}});}
+  if(method==='DELETE'){stored=false;return route.fulfill({status:204,body:''});}
+  return route.fulfill({json:{videos:stored?[{key:'videos/test.mp4',name:'<img src=x onerror=alert(1)>.mp4',size:12,uploaded:new Date().toISOString()}]:[],cursor:null}});
+ });
+ await page.goto(base+'/admin/');
+ await page.getByText('No videos uploaded yet.').waitFor();
+ await page.locator('#video').setInputFiles({name:'test.mp4',mimeType:'video/mp4',buffer:Buffer.from('test video')});
+ await page.getByRole('button',{name:'Upload video',exact:true}).click();
+ await page.getByText('Video uploaded privately.').waitFor();
+ assert.equal(await page.locator('article h2').innerText(),'<img src=x onerror=alert(1)>.mp4');
+ assert.equal(await page.locator('article img').count(),0);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Delete video'}).click();
+ await page.getByText('Video deleted.').waitFor();assert.equal(await page.locator('article').count(),0);
+ await page.route('**/api/admin/videos*',route=>route.fulfill({status:401,body:'Authentication required'}));
+ await page.reload();await page.getByText('Request failed. Check your sign-in and try again.').waitFor();
+ await page.close();
+});

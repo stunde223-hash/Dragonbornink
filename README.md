@@ -58,3 +58,17 @@ The hero image is preloaded, other portfolio images load lazily, and the local f
 The main film starts muted when at least a quarter of the player is visible and pauses when it leaves that area, the tab is hidden, or a portfolio viewer opens. Native controls let visitors enable sound or pause. Reduced-motion and data-saving preferences disable automatic playback, but manual playback remains available. Browser autoplay restrictions are handled without breaking the controls. Finished films stay stopped until replayed.
 
 Phones use 480px video versions for four films, reducing those downloads by 33–42%. The snake/floral film keeps its original, already smaller encode. No video data is requested on the initial page view. Original desktop video quality is retained. Tests cover both phone and desktop playback, all film choices, offscreen pausing, accessibility preferences, compression, caching, and video byte ranges.
+
+## Private uploads on Cloudflare Pages
+
+The private library lives at `/admin/`. It supports MP4/WebM uploads up to 50 MiB, authenticated playback, pagination, and deletion. Files remain private and are **not automatically published** to the homepage. The public website and Windows package continue to use the bundled media.
+
+1. Create a Cloudflare Pages project from `local-preview`, build command `npm run build`, output directory `dist`, Node 24. Deploy from the repository root so Pages includes `functions/`.
+2. Create a private R2 bucket. Disable its public r2.dev URL and do not attach a public custom domain. In Pages Settings → Bindings, bind it as `VIDEOS` for the intended deployment environment.
+3. Create a Cloudflare Access self-hosted application protecting both `/admin` (including descendants) and `/api/admin/*` on every hostname used to access this deployment. Use an Allow policy limited to your approved email addresses; no Bypass policy. Include preview hostnames or disable preview access.
+4. Set Pages environment variables `ACCESS_ISSUER` to `https://YOUR-TEAM.cloudflareaccess.com` (no trailing slash) and `ACCESS_AUD` to that Access application's audience tag. These are configuration identifiers, not passwords. Redeploy after binding or variable changes.
+5. Visit `/admin/`, sign in through Access, upload a video, play it, and delete it to verify the live binding. Unauthenticated API requests must fail. Functions independently verify the Access JWT signature, issuer, audience, and expiry; missing configuration fails closed with 503. Writes require a same-origin request. No API key or password is embedded in frontend assets.
+
+Local Cloudflare runtime: `npx wrangler pages dev dist --port 8788 --r2 VIDEOS`. Without Access configuration, `/admin/` and `/api/admin/videos` return 503 intentionally. `npm test` covers signed-token validation, storage behavior using an R2 test double, and dashboard browser interactions with mocked API responses. A real Cloudflare account, Access policy and R2 binding are needed to validate live authenticated uploads. No Cloudflare deployment is performed by building or pushing this repository.
+
+Rebuild the Windows download with `npm run build && python3 scripts/package-windows.py`. It bundles the public site, media and launcher; the cloud-only private dashboard is excluded. Extract the ZIP before running `Start-Dragonbornink.cmd` on Windows with Node installed.
